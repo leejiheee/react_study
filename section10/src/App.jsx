@@ -1,5 +1,5 @@
 import './App.css';
-import { useState, useRef, useReducer } from 'react';
+import { useState, useRef, useReducer, useCallback, createContext, useMemo } from 'react';
 import Header from './components/Header';
 import Editor from './components/Editor';
 import List from './components/List';
@@ -28,15 +28,18 @@ const mockData = [
 function reducer(state, action) {
   switch (action.type) {
     case "CREATE": return [action.data, ...state];
-    case "UPDATE": return state.map((item) => 
+    case "UPDATE": return state.map((item) =>
       item.id === action.targetId
-      ? {...item, isDone: !item.isDone}
-      : item);
-    case "DELETE": return state.filter((item)=>item.id !== action.targetId)
+        ? { ...item, isDone: !item.isDone }
+        : item);
+    case "DELETE": return state.filter((item) => item.id !== action.targetId)
     default:
       return state;
   }
 }
+
+export const TodoStateContext = createContext();
+export const TodoDispatchContext = createContext();
 
 function App() {
   const [todos, dispatch] = useReducer(reducer, mockData);
@@ -61,24 +64,31 @@ function App() {
 
     // 인수: todos 배열에서 targetId와 일치하는 id를 갖는 데이터만 딱 바꾼 새로운 배열
     dispatch({
-      type:"UPDATE",
+      type: "UPDATE",
       targetId: targetId
     })
-  }
+  };
 
-  const onDelete = (targetId) => {
-    // 인수: todos 배열에서 targetId와 일치하는 id를 갖는 요소만 삭제한 새로운 배열
+
+  const onDelete = useCallback((targetId) => {
     dispatch({
       type: "DELETE",
       targetId: targetId,
     })
-  }
+  }, [])
+
+  const memoizedDispatch = useMemo(()=>{return {onCreate, onUpdate, onDelete}}, []);
 
   return (
     <div className='App'>
       <Header />
-      <Editor onCreate={onCreate} />
-      <List todos={todos} onUpdate={onUpdate} onDelete={onDelete} />
+      <TodoStateContext.Provider value={todos}>
+        <TodoDispatchContext.Provider
+        value={memoizedDispatch}>
+          <Editor />
+          <List todos={todos} onUpdate={onUpdate} onDelete={onDelete} />
+        </TodoDispatchContext.Provider>
+      </TodoStateContext.Provider>
     </div>
   )
 }
